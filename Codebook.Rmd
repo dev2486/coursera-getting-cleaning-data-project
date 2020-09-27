@@ -1,0 +1,139 @@
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(echo = TRUE)
+```
+
+---
+title: "Data and cleaning assignment"
+output: github_document
+---
+
+#### **by Devendra Singh**
+
+This document lists the programming steps taken to tidy a data set generated through wearable computing, In this case, the data is collected from the accelerometers from the Samsung Galaxy S smartphone.The link is : http://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones
+
+```{r , echo=FALSE}
+if(!file.exists("./data1")){dir.create("./data1")}
+fileurl = 'https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip'
+if (!file.exists("./data1/UCI HAR Dataset.zip")){
+  download.file(fileurl,'./data1/UCI HAR Dataset.zip', mode = 'wb',quiet = FALSE,cacheOK = FALSE)
+ #since its not a text file but a zip file, mode is switched to binary
+   unzip("./data1/UCI HAR Dataset.zip", exdir = "./data1",overwrite = FALSE)
+}
+```
+
+##### **Saving data**
+
++ Create directory `./data1`  
++ Download zip file from `r fileurl` to `./data1`    
++ Extract file to `./data1` 
+
+##### **Reading data**
+
++ Read vectors from files `y_train.txt` (for activities) and   `subject_train.txt` (for subjects) and read data from `X_train`  
++ The data is split into `./data1/test`  and `./data1/train`  
+
+```{r include=FALSE}
+features <- read.csv('./data1/UCI HAR Dataset/features.txt', header = FALSE, sep = ' ')
+features <- as.character(features[,2])
+
+data.train.x <- read.table('./data1/UCI HAR Dataset/train/X_train.txt')
+data.train.activity <- read.csv('./data1/UCI HAR Dataset/train/y_train.txt', header = FALSE, sep = ' ')
+data.train.subject <- read.csv('./data1/UCI HAR Dataset/train/subject_train.txt',header = FALSE, sep = ' ')
+data.train <-  data.frame(data.train.subject, data.train.activity, data.train.x)
+names(data.train) <- c(c('subject', 'activity'), features)
+
+data.test.x <- read.table('./data1/UCI HAR Dataset/test/X_test.txt')
+data.test.activity <- read.csv('./data1/UCI HAR Dataset/test/y_test.txt', header = FALSE, sep = ' ')
+data.test.subject <- read.csv('./data1/UCI HAR Dataset/test/subject_test.txt', header = FALSE, sep = ' ')
+data.test <-  data.frame(data.test.subject, data.test.activity, data.test.x)
+names(data.test) <- c(c('subject', 'activity'), features)
+
+```
+
+##### **Making sense of data (test data only here)**
+
++ Total rows and columns in train.x data is `r nrow(data.train.x)` and `r ncol(data.train.x)`
+
++ Total rows and columns in train.activity data is `r   nrow(data.train.activity)` and `r ncol(data.train.activity)`  
+
++ Total rows and columns in train.x data is `r nrow(data.train.subject)` and `r ncol(data.train.subject)`
+
+##### **Combine data**
+
++ Combine activity, .X and .Y files into `data.train` and `data.test`
+
++Combine the files using `rbind` as `merge` may reorder the data  
+
+```{r include=FALSE}
+data.all <- rbind(data.train, data.test)
+
+```
+
+##### **Get columns with mean and sd**
+
++ `Mean` and `SD` columns identified selected using `grep` function
+
+```{r include=FALSE}
+mean_std.select <- grep('mean|std', features)
+data.sub <- data.all[,c(1,2,mean_std.select + 2)]
+```
+
+##### **Activity names**
+
++Activity names are red from the `activity_labels` file
+
+```{r include=FALSE}
+activity.labels <- read.table('./data1/UCI HAR Dataset/activity_labels.txt', header = FALSE)
+activity.labels <- as.character(activity.labels[,2])
+data.sub$activity <- activity.labels[data.sub$activity]
+```
+
+
+##### **Assign New names**
+
++ New names are changed using `gsub' function wherever there are short forms/non appropriate names like ^t for time
+
+```{r include=FALSE}
+names(data.sub)
+name.new <- names(data.sub)
+name.new <- gsub("[(][)]", "", name.new)
+name.new <- gsub("^t", "Time_", name.new)
+name.new <- gsub("^f", "FrequencyDomain_", name.new)
+name.new <- gsub("Acc", "Accelerometer", name.new)
+name.new <- gsub("BodyBody", "Body", name.new)
+name.new <- gsub("angle", "Angle", name.new)
+name.new <- gsub("gravity", "Gravity", name.new)
+name.new <- gsub("Gyro", "Gyroscope", name.new)
+name.new <- gsub("Mag", "Magnitude", name.new)
+name.new <- gsub("-mean-", "_Mean_", name.new)
+name.new <- gsub("-std-", "_StandardDeviation_", name.new)
+name.new <- gsub("-", "_", name.new)
+names(data.sub) <- name.new
+```
+
+##### **Aggregate means n**
+
++ Aggregate means of each of the columns using `aggregate` function
+
+```{r include=FALSE}
+data.tidy <- aggregate(data.sub[,3:81], by = list(activity = data.sub$activity, subject = data.sub$subject),FUN = mean)
+```
+
+##### **Save the output**
+
++ Output file saved as `data_tidy.txt`
+
+```{r include=FALSE}
+write.table(x = data.tidy, file = "data_tidy.txt", row.names = FALSE)
+
+```
+
+```{r}
+library("summarytools")
+  print(dfSummary(data.tidy, graph.magnif = 0.5), method = 'render')
+
+
+```
+
